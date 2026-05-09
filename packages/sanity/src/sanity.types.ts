@@ -616,6 +616,13 @@ export type AuthorReference = {
   [internalGroqTypeReferenceTo]?: "author";
 };
 
+export type CategoryReference = {
+  _ref: string;
+  _type: "reference";
+  _weak?: boolean;
+  [internalGroqTypeReferenceTo]?: "category";
+};
+
 export type Blog = {
   _id: string;
   _type: "blog";
@@ -632,6 +639,7 @@ export type Blog = {
     } & AuthorReference
   >;
   publishedAt?: string;
+  category?: CategoryReference;
   image: {
     asset?: SanityImageAssetReference;
     media?: unknown;
@@ -648,6 +656,17 @@ export type Blog = {
   seoHideFromLists?: boolean;
   ogTitle?: string;
   ogDescription?: string;
+};
+
+export type Category = {
+  _id: string;
+  _type: "category";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title: string;
+  slug: Slug;
+  description?: string;
 };
 
 export type SanityAssistInstructionTask = {
@@ -927,7 +946,9 @@ export type AllSanitySchemaTypes =
   | Page
   | LucideIcon
   | AuthorReference
+  | CategoryReference
   | Blog
+  | Category
   | SanityAssistInstructionTask
   | SanityAssistTaskStatus
   | SanityAssistSchemaTypeAnnotations
@@ -2348,6 +2369,7 @@ export type QueryBlogSlugPageDataResult = {
     } | null;
   } | null;
   publishedAt?: string;
+  category?: CategoryReference;
   image: {
     id: string | null;
     preview: string | null;
@@ -2495,6 +2517,17 @@ export type QueryGenericPageOGDataResult =
       image: null;
       dominantColor: null;
       seoImage: string | null;
+      logo: string | null;
+      date: string;
+    }
+  | {
+      _id: string;
+      _type: "category";
+      title: string;
+      description: string | null;
+      image: null;
+      dominantColor: null;
+      seoImage: null;
       logo: string | null;
       date: string;
     }

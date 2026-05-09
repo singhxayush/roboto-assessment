@@ -33,7 +33,7 @@ function printSeedDataImportInstructions() {
 
   // Message lines
   const lines = [
-    "",
+  "",
     `┌${"─".repeat(BOX_WIDTH)}┐`,
     padLine(
       `${COLOR_BLUE}To import the provided seed data into your Sanity dataset, run:${COLOR_RESET}`

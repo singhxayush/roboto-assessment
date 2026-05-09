@@ -91,6 +91,14 @@ export const blog = defineType({
         "The date when your blog post will appear to have been published",
       group: GROUP.MAIN_CONTENT,
     }),
+    defineField({
+      name: "category",
+      title: "Category",
+      type: "reference",
+      to: [{ type: "category" }],
+      description: "The category this blog post belongs to",
+      group: GROUP.MAIN_CONTENT,
+    }),
     imageWithAltField({
       title: "Image",
       description:

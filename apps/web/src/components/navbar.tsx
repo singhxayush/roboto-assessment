@@ -12,6 +12,8 @@ import { SanityButtons } from "./elements/sanity-buttons";
 import { Logo } from "./logo";
 import { MobileMenu } from "./mobile-menu";
 import { ModeToggle } from "./mode-toggle";
+import { Search } from "lucide-react";
+
 
 // Fetcher function
 const fetcher = async (url: string): Promise<NavigationData> => {
@@ -52,7 +54,7 @@ function DesktopColumnDropdown({
       </button>
       {isOpen ? (
         <div
-          className="fade-in-0 zoom-in-95 absolute top-full left-0 z-50 min-w-[280px] animate-in rounded-lg border bg-popover p-2 shadow-lg"
+          className="fade-in-0 zoom-in-95 absolute top-full left-0 z-50 min-w-70 animate-in rounded-lg border bg-popover p-2 shadow-lg"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           role="menu"

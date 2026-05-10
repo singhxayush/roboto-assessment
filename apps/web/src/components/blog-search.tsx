@@ -2,7 +2,7 @@
 
 import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
-import { Search, X } from "lucide-react";
+import { Command, Search, X } from "lucide-react";
 
 export function SearchInput({
   className,
@@ -18,7 +18,7 @@ export function SearchInput({
   onClear: () => void;
 }) {
   return (
-    <div className={cn("mx-auto w-full max-w-lg", className)}>
+    <div className={cn("", className)}>
       <div className="relative">
         <label className="sr-only" htmlFor="blog-search-input">
           {placeholder}
@@ -38,7 +38,7 @@ export function SearchInput({
             value={value}
           />
 
-          {value && (
+          {value ? (
             <button
               aria-label="Clear search"
               className="-translate-y-1/2 absolute top-1/2 right-3 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -47,6 +47,18 @@ export function SearchInput({
             >
               <X className="h-4 w-4" />
             </button>
+          ) : (  
+            <kbd
+              onClick={() => {
+                window.dispatchEvent(
+                  new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+                );
+              }}
+              className="-translate-y-1/2 absolute top-1/2 right-3 flex items-center gap-1 text-sm rounded border border-border py-1 px-2 cursor-pointer font-mono"
+            >
+              <Command size={12} />
+              K
+            </kbd>
           )}
         </div>
       </div>

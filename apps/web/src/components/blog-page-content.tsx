@@ -1,27 +1,56 @@
 "use client";
 
-import type { QueryBlogIndexPageDataResult } from "@workspace/sanity/types";
+import type {
+  QueryAllCategoriesResult,
+  QueryBlogIndexPageDataResult,
+} from "@workspace/sanity/types";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
 import { BlogHeader } from "@/components/blog-card";
 import { BlogPagination } from "@/components/blog-pagination";
-import { BlogSearchResults } from "@/components/blog-search-results";
 import { BlogSection } from "@/components/blog-section";
 import { PageBuilder } from "@/components/pagebuilder";
-import { useBlogSearch } from "@/hooks/use-blog-search";
+import {
+  useAlgoliaSearch,
+  useAvailableCategories,
+  type SortOption,
+} from "@/hooks/use-algolia-search";
 import type { Blog } from "@/types";
 import type { PaginationMetadata } from "@/utils";
+import { cn } from "@workspace/ui/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+import { ChevronDown, Command, Loader, Loader2, Search, X } from "lucide-react";
+import { AlgoliaBlogCard } from "./algolia-blog-card";
 import { SearchInput } from "./blog-search";
+import CategoryFilter from "./category-filter";
+
+const SORT_OPTIONS: { label: string; value: SortOption }[] = [
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "A → Z", value: "alphabetical" },
+];
 
 type BlogPageContentProps = {
   indexPageData: NonNullable<QueryBlogIndexPageDataResult>;
   blogs: Blog[];
   paginationMetadata: PaginationMetadata;
+  availableCategories: NonNullable<QueryAllCategoriesResult>;
+  selectedCategories: string[];
+  initialQuery: string;
 };
 
 export function BlogPageContent({
   indexPageData,
   blogs,
   paginationMetadata,
+  selectedCategories,
+  initialQuery,
 }: BlogPageContentProps) {
   const {
     title,
@@ -33,66 +62,214 @@ export function BlogPageContent({
     displayFeaturedBlogs,
   } = indexPageData;
 
-  const { searchQuery, setSearchQuery, results, isSearching, hasQuery, error } =
-    useBlogSearch();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [localCategories, setLocalCategories] = useState<string[]>(selectedCategories);
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [query, setQueryState] = useState(initialQuery);
+  const [, startTransition] = useTransition();
+
+
+  useEffect(() => {
+    const cats = searchParams.getAll("categories");
+    const q = searchParams.get("query") ?? "";
+    setLocalCategories(cats);
+    setQueryState(q);
+  }, [searchParams]);
+
+  // Only push to history for query (shareable), replace for categories (instant)
+  const pushURL = useCallback(
+    (updates: { categories?: string[]; query?: string }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (updates.categories !== undefined) {
+        params.delete("categories");
+        for (const c of updates.categories) params.append("categories", c);
+      }
+      if (updates.query !== undefined) {
+        if (updates.query) params.set("query", updates.query);
+        else params.delete("query");
+      }
+      params.delete("page");
+      startTransition(() => {
+        router.push(`/blog?${params.toString()}`);
+      });
+    },
+    [searchParams, router]
+  );
+
+
+  const setQuery = useCallback(
+    (q: string) => {
+      setQueryState(q);
+      pushURL({ query: q });
+    },
+    [pushURL]
+  );
+
+  const handleCategoryClick = (slug: string) => {
+    const next = localCategories.includes(slug)
+      ? localCategories.filter((c) => c !== slug)
+      : [...localCategories, slug];
+    // Optimistic update — local state changes immediately, URL follows
+    setLocalCategories(next);
+    pushURL({ categories: next });
+  };
+
+  const handleClearCategories = () => {
+    setLocalCategories([]);
+    setQueryState("");
+    pushURL({ categories: [], query: "" });
+  };
+
+  const { results, isSearching, hasQuery, isActive } = useAlgoliaSearch(
+    localCategories,
+    sortBy,
+    query
+  );
+
+  const dynamicCategories = useAvailableCategories(localCategories, query);
 
   const validFeaturedBlogsCount = featuredBlogsCount
     ? Number.parseInt(featuredBlogsCount, 10)
     : 0;
 
+  // Featured blogs only hidden when search or category filter active — NOT sort
+  const hasSearchOrFilter = hasQuery || localCategories.length > 0;
+
   const shouldDisplayFeaturedBlogs =
     displayFeaturedBlogs &&
     validFeaturedBlogsCount > 0 &&
     paginationMetadata.currentPage === 1 &&
-    !hasQuery;
+    !hasSearchOrFilter;
 
   const featuredBlogs = shouldDisplayFeaturedBlogs
     ? blogs.slice(0, validFeaturedBlogsCount)
     : [];
 
-  const remainingBlogs = shouldDisplayFeaturedBlogs
-    ? blogs.slice(validFeaturedBlogsCount)
-    : blogs;
+  // Apply sort to Sanity list client-side when not in search/filter mode
+  const sortedRemainingBlogs = useMemo(() => {
+    const base = shouldDisplayFeaturedBlogs
+      ? blogs.slice(validFeaturedBlogsCount)
+      : blogs;
+
+    // Convert Blog[] to sortable shape — getSortedResults expects AlgoliaHit
+    // so we sort directly here
+    if (sortBy === "newest")
+      return [...base].sort((a, b) =>
+        (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")
+      );
+    if (sortBy === "oldest")
+      return [...base].sort((a, b) =>
+        (a.publishedAt ?? "").localeCompare(b.publishedAt ?? "")
+      );
+    if (sortBy === "alphabetical")
+      return [...base].sort((a, b) =>
+        (a.title ?? "").localeCompare(b.title ?? "")
+      );
+    return base;
+  }, [blogs, sortBy, shouldDisplayFeaturedBlogs, validFeaturedBlogsCount]);
+
+  const currentSortLabel =
+    SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort";
 
   return (
-    <main className="bg-background">
-      <div className="container mx-auto my-16 px-4 md:px-6">
+    <main className="bg-background pb-20 border-b">
+      <div className="container mx-auto py-16 px-4 md:px-6 border-x">
         <BlogHeader description={description} title={title} />
 
-        <SearchInput
-          className="mt-8 mb-12"
-          onChange={setSearchQuery}
-          onClear={() => setSearchQuery("")}
-          placeholder="Search blogs..."
-          value={searchQuery}
-        />
-
-        {hasQuery ? (
-          <BlogSearchResults
-            error={error}
-            hasQuery={hasQuery}
-            isSearching={isSearching}
-            results={results}
-            searchQuery={searchQuery}
-          />
-        ) : (
-          <>
-            <BlogSection
-              blogs={featuredBlogs}
-              isFeatured
-              title="Featured Posts"
+        <div className="flex items-center justify-between sticky top-16 mt-10 py-2 z-10 bg-background/80 backdrop-blur-sm">
+            <CategoryFilter
+              categories={dynamicCategories} 
+              selectedCategories={localCategories}
+              hasSearchQuery={query.length > 0}
+              onCategoryClick={handleCategoryClick}
+              onClear={handleClearCategories}
             />
-            <BlogSection blogs={remainingBlogs} title="All Posts" />
+
+            <SearchInput
+              className="shrink-0 min-w-sm lg:min-w-md"
+              onChange={setQuery}
+              onClear={() => setQuery("")}
+              placeholder="Search blogs..."
+              value={query}
+            />
+        </div>
+
+        {isActive ? (
+          <>
+            {isSearching && (
+              <p className="mb-6 text-sm text-muted-foreground min-h-20 flex items-start justify-center">
+                <Loader2 className="animate-spin" />
+              </p>
+            )}
+            {!isSearching && results.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-muted-foreground">
+                  {hasQuery
+                    ? `No results for "${query}"`
+                    : "No posts in this category"}
+                </p>
+              </div>
+            )}
+            {!isSearching && results.length > 0 && (
+              <section className="mt-8">
+                <h2 className="sr-only">
+                  {hasQuery ? `Results for "${query}"` : "Filtered posts"}
+                </h2>
+                <div className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+                  {results.map((hit) => (
+                    <AlgoliaBlogCard key={hit.objectID} hit={hit} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        ) : (
+          <div className="mt-10">
+            {/* Featured Blog */}
+            <BlogSection blogs={featuredBlogs} isFeatured title="Featured Posts" />
+
+            <div className="flex items-center justify-between">
+              <span>Latest articles</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center shrink-0 gap-2 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {currentSortLabel}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {SORT_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt.value}
+                      onClick={() => setSortBy(opt.value)}
+                      className={cn(
+                        sortBy === opt.value && "font-medium text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <BlogSection blogs={sortedRemainingBlogs} title="All Posts" />
+
             {paginationMetadata?.totalPages > 1 && (
               <BlogPagination
-                className="mt-12 flex justify-center"
+                className="mt-40 flex justify-center"
                 currentPage={paginationMetadata.currentPage}
                 hasNextPage={paginationMetadata.hasNextPage}
                 hasPreviousPage={paginationMetadata.hasPreviousPage}
                 totalPages={paginationMetadata.totalPages}
               />
             )}
-          </>
+          </div>
         )}
       </div>
 

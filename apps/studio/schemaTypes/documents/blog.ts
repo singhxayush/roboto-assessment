@@ -92,12 +92,18 @@ export const blog = defineType({
       group: GROUP.MAIN_CONTENT,
     }),
     defineField({
-      name: "category",
-      title: "Category",
-      type: "reference",
-      to: [{ type: "category" }],
-      description: "The category this blog post belongs to",
+      name: "categories",
+      title: "Categories",
+      type: "array",
+      of: [
+        defineArrayMember({
+          type: "reference",
+          to: [{ type: "category" }],
+        }),
+      ],
+      description: "The categories this blog post belongs to",
       group: GROUP.MAIN_CONTENT,
+      validation: (Rule) => Rule.unique(),
     }),
     imageWithAltField({
       title: "Image",

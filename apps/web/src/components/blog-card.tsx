@@ -169,8 +169,8 @@ export function BlogHeader({
   description: string | null;
 }) {
   return (
-    <div className="mx-auto max-w-7xl px-6 lg:px-8">
-      <div className="mx-auto max-w-2xl text-center">
+    <div className="max-w-7xl">
+      <div className="max-w-2xl text-left">
         <h1 className="font-bold text-3xl sm:text-4xl">{title}</h1>
         <p className="mt-4 text-lg text-muted-foreground leading-8">
           {description}

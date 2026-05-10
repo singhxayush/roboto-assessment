@@ -78,7 +78,11 @@ const blogCardFragment = /* groq */ `
   orderRank,
   ${imageFragment},
   publishedAt,
-  ${blogAuthorFragment}
+  ${blogAuthorFragment},
+ "categories": categories[]->{
+    title,
+    "slug": slug.current
+  }
 `;
 
 const buttonsFragment = /* groq */ `
@@ -252,7 +256,7 @@ export const queryBlogIndexPageData = defineQuery(`
 `);
 
 export const queryBlogIndexPageBlogs = defineQuery(`
-  *[_type == "blog" && (seoHideFromLists != true)] | order(orderRank asc) [$start...$end]{
+  *[_type == "blog" && (seoHideFromLists != true) && (count($categories) == 0 || count(categories[_ref in *[_type=="category" && slug.current in $categories]._id]) > 0)] | order(orderRank asc) [$start...$end]{
     ${blogCardFragment}
   }
 `);
@@ -264,8 +268,9 @@ export const queryAllBlogDataForSearch = defineQuery(`
 `);
 
 export const queryBlogIndexPageBlogsCount = defineQuery(`
-  count(*[_type == "blog" && (seoHideFromLists != true)])
+  count(*[_type == "blog" && (seoHideFromLists != true) && (count($categories) == 0 || count(categories[_ref in *[_type=="category" && slug.current in $categories]._id]) > 0)])
 `);
+
 export const queryBlogSlugPageData = defineQuery(`
   *[_type == "blog" && slug.current == $slug][0]{
     ...,
@@ -279,6 +284,22 @@ export const queryBlogSlugPageData = defineQuery(`
 
 export const queryBlogPaths = defineQuery(`
   *[_type == "blog" && defined(slug.current)].slug.current
+`);
+
+export const queryAllCategories = defineQuery(`
+  *[_type == "category"] | order(title asc) {
+    _id,
+    title,
+    "slug": slug.current
+  }
+`);
+
+export const queryAvailableCategories = defineQuery(`
+  *[_type == "category" && _id in *[_type == "blog" && (seoHideFromLists != true) && (count($categories) == 0 || count(categories[_ref in *[_type=="category" && slug.current in $categories]._id]) > 0)].categories[]._ref] | order(title asc) {
+    _id,
+    title,
+    "slug": slug.current
+  }
 `);
 
 const ogFieldsFragment = /* groq */ `

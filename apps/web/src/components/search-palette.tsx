@@ -84,24 +84,24 @@ function nameToSlug(name: string): string {
   return name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-export function SearchPalette() {
+
+function useSearchLogic() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AlgoliaBlog[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Autocomplete hooks and states
+  const router = useRouter();
+
   const { allCategories, allAuthors } = useSearchData();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionIndex, setSuggestionIndex] = useState(0);
 
-  // Detect if user is typing a tag
   const getActiveToken = (q: string) => {
     const catMatch = q.match(/#([\w-]*)$/);
     const authMatch = q.match(/@([\w-]*)$/);
@@ -110,7 +110,6 @@ export function SearchPalette() {
     return null;
   };
 
-  // Update suggestions as query changes
   useEffect(() => {
     const token = getActiveToken(query);
     if (!token) {
@@ -139,7 +138,6 @@ export function SearchPalette() {
     const token = getActiveToken(query);
     if (!token) return;
     const prefix = token.type === "category" ? "#" : "@";
-    // Replace the partial token at end of query with full suggestion
     const newQuery = query.replace(
       new RegExp(`${prefix}${token.partial}$`),
       `${prefix}${suggestion} `
@@ -148,9 +146,6 @@ export function SearchPalette() {
     setSuggestions([]);
   };
 
-  
-
-  // CMD+K listener
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -163,7 +158,6 @@ export function SearchPalette() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Focus input when opened
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -173,8 +167,6 @@ export function SearchPalette() {
     }
   }, [open]);
 
-  // Debounced Algolia search
-// Debounced Algolia search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -191,7 +183,6 @@ export function SearchPalette() {
         const categoryTokens = tokens.filter((t) => t.type === "category");
         const authorTokens = tokens.filter((t) => t.type === "author");
 
-        // 1. Resolve partial tags to EXACT facet matches
         const facetPromises: Promise<{ type: string; values: string[] }>[] = [];
 
         categoryTokens.forEach((t) => {
@@ -199,7 +190,7 @@ export function SearchPalette() {
             searchClient
               .searchForFacetValues({
                 indexName: INDEX,
-                facetName: "categorySlugs", // MUST be set as 'searchable' facet in Algolia Dashboard
+                facetName: "categorySlugs",
                 searchForFacetValuesRequest: { facetQuery: t.value || "" },
               })
               .then((res) => ({
@@ -214,7 +205,7 @@ export function SearchPalette() {
             searchClient
               .searchForFacetValues({
                 indexName: INDEX,
-                facetName: "authorSlug", // MUST be set as 'searchable' facet in Algolia Dashboard
+                facetName: "authorSlug",
                 searchForFacetValuesRequest: { facetQuery: t.value || "" },
               })
               .then((res) => ({
@@ -224,25 +215,19 @@ export function SearchPalette() {
           );
         });
 
-        // Run all facet searches in parallel
         const facetResults = await Promise.all(facetPromises);
 
-        // 2. Build the EXACT filter string
         const filterGroups = facetResults.map((fr) => {
-          // If a user types @nonexistent and no facets match, force the query to return 0 results
           if (fr.values.length === 0) return "objectID:null_force_empty";
-          
-          // Creates an OR group: (authorSlug:ayush-kumar OR authorSlug:ayushman)
           return `(${fr.values.map((v) => `${fr.type}:${v}`).join(" OR ")})`;
         });
 
         const filters = filterGroups.length > 0 ? filterGroups.join(" AND ") : undefined;
 
-        // 3. Search the blogs cleanly
         const response = await searchClient.searchSingleIndex<AlgoliaBlog>({
           indexName: INDEX,
           searchParams: {
-            query: plainText, // ONLY plain text goes here now! No tags to trigger false title matches.
+            query: plainText,
             filters: filters,
             hitsPerPage: 8,
           },
@@ -262,50 +247,311 @@ export function SearchPalette() {
     };
   }, [query]);
 
-  // Keyboard navigation
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      // Tab autocomplete
-      if (e.key === "Tab" && suggestions.length > 0) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          // Shift+Tab — cycle backwards
-          setSuggestionIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-        } else {
-          // Tab — cycle forwards
-          setSuggestionIndex((i) => (i + 1) % suggestions.length);
-        }
-        return;
-      }
-      if (e.key === "Enter" && suggestions.length > 0) {
-        e.preventDefault();
-        applySuggestion(suggestions[suggestionIndex] ?? "");
-        return;
-      }
-
-      // existing arrow/enter navigation for results
-      if (e.key === "ArrowDown") {
-          e.preventDefault();
-          const next = Math.min(selectedIndex + 1, results.length - 1);
-          setSelectedIndex(next);
-          itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
-      } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          const prev = Math.max(selectedIndex - 1, 0);
-          setSelectedIndex(prev);
-          itemRefs.current[prev]?.scrollIntoView({ block: "nearest" });
-      } else if (e.key === "Enter" && results[selectedIndex]) {
-          navigateTo(results[selectedIndex]);
-      }
-    };
-
   const navigateTo = (blog: AlgoliaBlog) => {
     router.push(`/blog/${blog.slug.split("/").pop() || blog.slug}`);
     setOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Tab" && suggestions.length > 0) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        setSuggestionIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+      } else {
+        setSuggestionIndex((i) => (i + 1) % suggestions.length);
+      }
+      return;
+    }
+    if (e.key === "Enter" && suggestions.length > 0) {
+      e.preventDefault();
+      applySuggestion(suggestions[suggestionIndex] ?? "");
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = Math.min(selectedIndex + 1, results.length - 1);
+      setSelectedIndex(next);
+      itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = Math.max(selectedIndex - 1, 0);
+      setSelectedIndex(prev);
+      itemRefs.current[prev]?.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter" && results[selectedIndex]) {
+      navigateTo(results[selectedIndex]);
+    }
+  };
+
   const { tokens } = parseQuery(query);
   const activeCategories = tokens.filter((t) => t.type === "category");
   const activeAuthors = tokens.filter((t) => t.type === "author");
+
+  return {
+    open,
+    setOpen,
+    query,
+    setQuery,
+    results,
+    loading,
+    selectedIndex,
+    setSelectedIndex,
+    suggestions,
+    suggestionIndex,
+    applySuggestion,
+    handleKeyDown,
+    navigateTo,
+    inputRef,
+    itemRefs,
+    activeCategories,
+    activeAuthors,
+  };
+}
+
+
+function SearchInput({
+  inputRef,
+  query,
+  setQuery,
+  handleKeyDown,
+  loading,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  query: string;
+  setQuery: (val: string) => void;
+  handleKeyDown: (e: React.KeyboardEvent) => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Search… try #engineering or @elisa-mante"
+        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+      {loading && (
+        <span className="text-xs text-muted-foreground">Searching…</span>
+      )}
+      <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+        ESC
+      </kbd>
+    </div>
+  );
+}
+
+function SuggestionsMenu({
+  suggestions,
+  suggestionIndex,
+  applySuggestion,
+}: {
+  suggestions: string[];
+  suggestionIndex: number;
+  applySuggestion: (s: string) => void;
+}) {
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div className="border-b border-border px-4 py-2">
+      <p className="mb-1.5 text-xs text-muted-foreground">Suggestions</p>
+      <div className="flex flex-wrap gap-1.5">
+        {suggestions.map((s, i) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => applySuggestion(s)}
+            className={cn(
+              "rounded border px-2 py-0.5 font-mono text-xs transition-colors",
+              i === suggestionIndex
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:border-foreground"
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActiveTokensPanel({
+  activeCategories,
+  activeAuthors,
+}: {
+  activeCategories: Token[];
+  activeAuthors: Token[];
+}) {
+  if (activeCategories.length === 0 && activeAuthors.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2">
+      {activeCategories.map((t) => (
+        <span
+          key={`cat-${t.value}`}
+          className="flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-medium"
+        >
+          <Hash className="h-3 w-3" />
+          {t.value}
+        </span>
+      ))}
+      {activeAuthors.map((t) => (
+        <span
+          key={`auth-${t.value}`}
+          className="flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-medium"
+        >
+          <AtSign className="h-3 w-3" />
+          {t.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function SyntaxGuide() {
+  return (
+    <div className="px-4 py-2">
+      <div className="rounded-xl border bg-background/40 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-medium text-foreground">Search syntax</p>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            combinable
+          </span>
+        </div>
+
+        <div className="space-y-2.5 text-sm">
+          <div className="flex items-start gap-3">
+            <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">1</span>
+            <div className="min-w-0">
+              <p className="font-mono text-[13px] text-foreground">auth jwt session</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Plain full-text search</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">2</span>
+            <div className="min-w-0">
+              <p className="font-mono text-[13px] text-foreground">#backend</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Filter by category slug</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">3</span>
+            <div className="min-w-0">
+              <p className="font-mono text-[13px] text-foreground">@ayush</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Filter by author slug</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 border-t pt-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">Combine filters freely:</p>
+          <p className="mt-1 font-mono text-[12px] text-foreground/90">
+            auth #backend @ayush
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BlogResultItem({
+  blog,
+  index,
+  selectedIndex,
+  setSelectedIndex,
+  navigateTo,
+  assignRef,
+}: {
+  blog: AlgoliaBlog;
+  index: number;
+  selectedIndex: number;
+  setSelectedIndex: (idx: number) => void;
+  navigateTo: (blog: AlgoliaBlog) => void;
+  assignRef: (el: HTMLButtonElement | null) => void;
+}) {
+  return (
+    <button
+      ref={assignRef}
+      type="button"
+      onClick={() => navigateTo(blog)}
+      className={cn(
+        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
+        index === selectedIndex ? "bg-foreground/5" : "hover:bg-foreground/5"
+      )}
+      onMouseEnter={() => setSelectedIndex(index)}
+    >
+      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="flex-1 min-w-0">
+        <p className="truncate text-sm font-medium">{blog.title}</p>
+        {blog.description && (
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {blog.description}
+          </p>
+        )}
+        {blog.publishedAt && (
+          <p className="mt-0.5 text-xs text-muted-foreground/60">
+            {new Date(blog.publishedAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+        )}
+        <div className="mt-1 flex flex-wrap gap-1">
+          {blog.categories?.map((cat) => (
+            <span
+              key={cat.slug}
+              className="rounded-full bg-foreground/8 px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              #{cat.slug}
+            </span>
+          ))}
+          {blog.author?.name && (
+            <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-xs text-muted-foreground">
+              @{nameToSlug(blog.author.name)}
+            </span>
+          )}
+        </div>
+      </div>
+      <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
+
+function SearchFooter() {
+  return (
+    <div className="flex items-center justify-between border-t border-border px-4 py-2">
+      <span className="text-xs text-muted-foreground">
+        ↑↓ navigate · Enter select · Esc close
+      </span>
+      {/* <span className="text-xs text-muted-foreground">Powered by Algolia</span> */}
+    </div>
+  );
+}
+
+export function SearchPalette() {
+  const {
+    open,
+    setOpen,
+    query,
+    setQuery,
+    results,
+    loading,
+    selectedIndex,
+    setSelectedIndex,
+    suggestions,
+    suggestionIndex,
+    applySuggestion,
+    handleKeyDown,
+    navigateTo,
+    inputRef,
+    itemRefs,
+    activeCategories,
+    activeAuthors,
+  } = useSearchLogic();
 
   if (!open) return null;
 
@@ -322,77 +568,26 @@ export function SearchPalette() {
         className="relative w-full max-w-xl rounded-xl border border-border bg-background shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Input row */}
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder='Search… try #engineering or @elisa-mante'
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          {loading && (
-            <span className="text-xs text-muted-foreground">Searching…</span>
-          )}
-          <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-            ESC
-          </kbd>
-        </div>
+        <SearchInput
+          inputRef={inputRef}
+          query={query}
+          setQuery={setQuery}
+          handleKeyDown={handleKeyDown}
+          loading={loading}
+        />
 
-        {/* auto complete suggestion Menu */}
-        {suggestions.length > 0 && (
-          <div className="border-b border-border px-4 py-2">
-            <p className="mb-1.5 text-xs text-muted-foreground">Suggestions</p>
-            <div className="flex flex-wrap gap-1.5">
-              {suggestions.map((s, i) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => applySuggestion(s)}
-                  className={cn(
-                    "rounded border px-2 py-0.5 font-mono text-xs transition-colors",
-                    i === suggestionIndex
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:border-foreground"
-                  )}
-                >
-                  {s}
-                  {i === 0 && (
-                    <kbd className="ml-1.5 opacity-50">Tab</kbd>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <SuggestionsMenu
+          suggestions={suggestions}
+          suggestionIndex={suggestionIndex}
+          applySuggestion={applySuggestion}
+        />
 
-        {/* Active token pills */}
-        {(activeCategories.length > 0 || activeAuthors.length > 0) && (
-          <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2">
-            {activeCategories.map((t) => (
-              <span
-                key={t.value}
-                className="flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-medium"
-              >
-                <Hash className="h-3 w-3" />
-                {t.value}
-              </span>
-            ))}
-            {activeAuthors.map((t) => (
-              <span
-                key={t.value}
-                className="flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-medium"
-              >
-                <AtSign className="h-3 w-3" />
-                {t.value}
-              </span>
-            ))}
-          </div>
-        )}
+        <ActiveTokensPanel
+          activeCategories={activeCategories}
+          activeAuthors={activeAuthors}
+        />
 
-        {/* Results */}
+        {/* Results Area */}
         <div className="max-h-90 overflow-y-auto py-2">
           {query && !loading && results.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -400,161 +595,22 @@ export function SearchPalette() {
             </div>
           )}
 
-          {!query && (
-            <div className="px-4 py-2">
-              <div className="rounded-xl border bg-background/40 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-medium text-foreground">
-                    Search syntax
-                  </p>
-
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    combinable
-                  </span>
-                </div>
-
-                <div className="space-y-2.5 text-sm">
-                  <div className="flex items-start gap-3">
-                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
-                      1
-                    </span>
-
-                    <div className="min-w-0">
-                      <p className="font-mono text-[13px] text-foreground">
-                        auth jwt session
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Plain full-text search
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
-                      2
-                    </span>
-
-                    <div className="min-w-0">
-                      <p className="font-mono text-[13px] text-foreground">
-                        #backend
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Filter by category slug
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
-                      3
-                    </span>
-
-                    <div className="min-w-0">
-                      <p className="font-mono text-[13px] text-foreground">
-                        @ayush
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Filter by author slug
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* <div className="flex items-start gap-3">
-                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
-                      4
-                    </span>
-
-                    <div className="min-w-0">
-                      <p className="font-mono text-[13px] text-foreground">
-                        middleware &gt; redis
-                      </p>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Match blogs containing text after{" "}
-                        <span className="font-mono">&gt;</span>
-                      </p>
-                    </div>
-                  </div> */}
-                </div>
-
-                <div className="mt-4 border-t pt-3">
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Combine filters freely:
-                  </p>
-
-                  <p className="mt-1 font-mono text-[12px] text-foreground/90">
-                    {/* auth #backend @ayush &gt; redis */}
-                    auth #backend @ayush
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {!query && <SyntaxGuide />}
 
           {results.map((blog, i) => (
-            <button
+            <BlogResultItem
               key={blog.objectID}
-              ref={(el) => { itemRefs.current[i] = el; }}
-              type="button"
-              onClick={() => navigateTo(blog)}
-              className={cn(
-                "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
-                i === selectedIndex
-                  ? "bg-foreground/5"
-                  : "hover:bg-foreground/5"
-              )}
-              onMouseEnter={() => setSelectedIndex(i)}
-            >
-              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium">{blog.title}</p>
-                {blog.description && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {blog.description}
-                    </p>
-                )}
-                {blog.publishedAt && (
-                    <p className="mt-0.5 text-xs text-muted-foreground/60">
-                        {new Date(blog.publishedAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        })}
-                    </p>
-                )}
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {blog.categories?.map((cat) => (
-                    <span
-                      key={cat.slug}
-                      className="rounded-full bg-foreground/8 px-2 py-0.5 text-xs text-muted-foreground"
-                    >
-                      #{cat.slug}
-                    </span>
-                  ))}
-                  {blog.author?.name && (
-                    <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-xs text-muted-foreground">
-                        @{nameToSlug(blog.author.name)}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
+              blog={blog}
+              index={i}
+              selectedIndex={selectedIndex}
+              setSelectedIndex={setSelectedIndex}
+              navigateTo={navigateTo}
+              assignRef={(el) => { itemRefs.current[i] = el; }}
+            />
           ))}
         </div>
 
-        {/* Footer hint */}
-        <div className="flex items-center justify-between border-t border-border px-4 py-2">
-          <span className="text-xs text-muted-foreground">
-            ↑↓ navigate · Enter select · Esc close
-          </span>
-          <span className="text-xs text-muted-foreground">
-            Powered by Algolia
-          </span>
-        </div>
+        <SearchFooter />
       </div>
     </div>
   );

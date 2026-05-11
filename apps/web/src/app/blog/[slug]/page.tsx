@@ -3,6 +3,7 @@ import { client } from "@workspace/sanity/client";
 import { sanityFetch } from "@workspace/sanity/live";
 import { queryBlogPaths, queryBlogSlugPageData } from "@workspace/sanity/query";
 import { notFound } from "next/navigation";
+import { PokemonCard } from "@/components/pokemon-card";
 
 import { RichText } from "@/components/elements/rich-text";
 import { SanityImage } from "@/components/elements/sanity-image";
@@ -90,12 +91,18 @@ export default async function BlogSlugPage({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_300px]">
         <main>
           <ArticleJsonLd article={data} />
-          <header className="mb-8">
+          <header className="mb-8 relative">
             <h1 className="mt-2 font-bold text-4xl">{title}</h1>
             <p className="mt-4 text-lg text-muted-foreground">{description}</p>
           </header>
+
+          {/* Pokemon */}
+          <div className="mb-10">
+            {data.pokemon && <PokemonCard name={data.pokemon} />}
+          </div>
+
           {image && (
-            <div className="mb-12">
+            <div className="mb- relative">
               <SanityImage
                 alt={title}
                 className="h-auto w-full rounded-lg"
@@ -106,6 +113,7 @@ export default async function BlogSlugPage({
               />
             </div>
           )}
+
           <RichText richText={richText} />
         </main>
 

@@ -93,6 +93,9 @@ importers:
       '@workspace/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      algoliasearch:
+        specifier: ^5.52.1
+        version: 5.52.1
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -10206,7 +10209,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@sanity/insert-menu@3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
+  '@sanity/insert-menu@3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))':
     dependencies:
       '@sanity/icons': 3.7.4(react@19.2.4)
       '@sanity/types': 5.16.0(@types/react@19.2.14)(debug@4.4.3)
@@ -10590,7 +10593,7 @@ snapshots:
     dependencies:
       '@sanity/comlink': 4.0.1
       '@sanity/icons': 3.7.4(react@19.2.4)
-      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@sanity/mutate': 0.16.1(xstate@5.28.0)
       '@sanity/presentation-comlink': 2.0.1(@sanity/client@7.17.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))
       '@sanity/preview-url-secret': 4.0.3(@sanity/client@7.17.0)
@@ -10618,7 +10621,7 @@ snapshots:
     dependencies:
       '@sanity/comlink': 4.0.1
       '@sanity/icons': 3.7.4(react@19.2.4)
-      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@sanity/mutate': 0.16.1(xstate@5.28.0)
       '@sanity/presentation-comlink': 2.0.1(@sanity/client@7.17.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))
       '@sanity/preview-url-secret': 4.0.4(@sanity/client@7.17.0)
@@ -10646,7 +10649,7 @@ snapshots:
     dependencies:
       '@sanity/comlink': 4.0.1
       '@sanity/icons': 3.7.4(react@19.2.4)
-      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@sanity/mutate': 0.16.1(xstate@5.28.0)
       '@sanity/presentation-comlink': 2.0.1(@sanity/client@7.17.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))
       '@sanity/preview-url-secret': 4.0.4(@sanity/client@7.17.0)
@@ -13571,7 +13574,7 @@ snapshots:
       '@sanity/icons': 3.7.4(react@19.2.4)
       '@sanity/id-utils': 1.0.0
       '@sanity/image-url': 2.0.3
-      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14)(debug@4.4.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
+      '@sanity/insert-menu': 3.0.4(@emotion/is-prop-valid@1.4.0)(@sanity/types@5.16.0(@types/react@19.2.14))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(styled-components@6.3.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4))
       '@sanity/logos': 2.2.2(react@19.2.4)
       '@sanity/media-library-types': 1.2.0
       '@sanity/message-protocol': 0.19.0

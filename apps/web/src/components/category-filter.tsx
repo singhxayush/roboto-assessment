@@ -23,12 +23,25 @@ const CategoryFilter = ({
   onCategoryClick,
   onClear,
 }: CategoryFilterProps) => {
-  if (!categories || categories.length === 0) return null;
+  // if (!categories || categories.length === 0) return <></>;
 
   const showClearAll = selectedCategories.length > 0 || hasSearchQuery;
 
   return (
     <div className="flex flex-wrap gap-2">
+      {showClearAll && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="cursor-pointer rounded-lg border border-border px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        >
+          <span className="flex items-center gap-1">
+            Clear All
+            <X size={16} />
+          </span>
+        </button>
+      )}
+
       {categories.map((cat) => {
         const slug = cat.slug ?? "";
         if (!slug) return null;
@@ -51,19 +64,6 @@ const CategoryFilter = ({
           </button>
         );
       })}
-      
-      {showClearAll && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="cursor-pointer rounded-lg border border-border px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
-        >
-          <span className="flex items-center gap-1">
-            Clear All
-            <X size={16} />
-          </span>
-        </button>
-      )}
     </div>
   );
 };

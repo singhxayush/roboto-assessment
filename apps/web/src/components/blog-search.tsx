@@ -31,7 +31,7 @@ export function SearchInput({
           />
 
           <Input
-            className="h-12 pr-10 pl-10 text-base"
+            className="h-12 pr-10 pl-10 text-base focus-visible:ring-0"
             id="blog-search-input"
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}

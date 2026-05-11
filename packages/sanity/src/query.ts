@@ -275,6 +275,7 @@ export const queryBlogSlugPageData = defineQuery(`
   *[_type == "blog" && slug.current == $slug][0]{
     ...,
     "slug": slug.current,
+    pokemon,
     ${blogAuthorFragment},
     ${imageFragment},
     ${richTextFragment},

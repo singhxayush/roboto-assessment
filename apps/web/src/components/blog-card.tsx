@@ -117,7 +117,9 @@ export function FeaturedBlogCard({ blog }: BlogCardProps) {
 
   return (
     <article className="grid w-full grid-cols-1 gap-8 lg:grid-cols-2">
-      <BlogImage image={image} title={title} />
+      <Link href={slug ?? "#"}>
+        <BlogImage image={image} title={title} />
+      </Link>
       <div className="space-y-6">
         <BlogMeta publishedAt={publishedAt} />
         <BlogContent
@@ -150,7 +152,9 @@ export function BlogCard({ blog }: BlogCardProps) {
   return (
     <article className="grid w-full grid-cols-1 gap-4">
       <div className="relative aspect-video h-auto w-full overflow-hidden rounded-2xl">
-        <BlogImage image={image} title={title} />
+        <Link href={slug ?? "#"}>
+          <BlogImage image={image} title={title} />
+        </Link>
         <div className="absolute inset-0 rounded-2xl ring-1 ring-gray-900/10 ring-inset" />
       </div>
       <div className="w-full space-y-4">

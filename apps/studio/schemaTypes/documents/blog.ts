@@ -4,6 +4,8 @@ import {
 } from "@sanity/orderable-document-list";
 import { FileTextIcon } from "lucide-react";
 import { defineArrayMember, defineField, defineType } from "sanity";
+import { PokemonPicker } from "@/components/pokemon-picker";
+
 
 import { documentSlugField, imageWithAltField } from "@/schemaTypes/common";
 import { GROUP, GROUPS } from "@/utils/constant";
@@ -104,6 +106,16 @@ export const blog = defineType({
       description: "The categories this blog post belongs to",
       group: GROUP.MAIN_CONTENT,
       validation: (Rule) => Rule.unique(),
+    }),
+    defineField({
+      name: "pokemon",
+      title: "Pokémon",
+      type: "string",
+      description: "The Pokémon associated with this blog post",
+      group: GROUP.MAIN_CONTENT,
+      components: {
+        input: PokemonPicker,
+      },
     }),
     imageWithAltField({
       title: "Image",

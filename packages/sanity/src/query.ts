@@ -294,6 +294,13 @@ export const queryAllCategories = defineQuery(`
   }
 `);
 
+export const queryAllAuthors = defineQuery(`
+  *[_type == "author"] | order(name asc) {
+    _id,
+    name
+  }
+`);
+
 export const queryAvailableCategories = defineQuery(`
   *[_type == "category" && _id in *[_type == "blog" && (seoHideFromLists != true) && (count($categories) == 0 || count(categories[_ref in *[_type=="category" && slug.current in $categories]._id]) > 0)].categories[]._ref] | order(title asc) {
     _id,

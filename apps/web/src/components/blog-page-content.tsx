@@ -5,7 +5,7 @@ import type {
   QueryBlogIndexPageDataResult,
 } from "@workspace/sanity/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { BlogHeader } from "@/components/blog-card";
 import { BlogPagination } from "@/components/blog-pagination";
@@ -49,6 +49,7 @@ export function BlogPageContent({
   indexPageData,
   blogs,
   paginationMetadata,
+  availableCategories,
   selectedCategories,
   initialQuery,
 }: BlogPageContentProps) {
@@ -69,6 +70,10 @@ export function BlogPageContent({
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [query, setQueryState] = useState(initialQuery);
   const [, startTransition] = useTransition();
+
+  // Debounce ref for URL sync only
+  const queryDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
 
 
   useEffect(() => {
@@ -98,13 +103,20 @@ export function BlogPageContent({
     [searchParams, router]
   );
 
-
   const setQuery = useCallback(
     (q: string) => {
-      setQueryState(q);
-      pushURL({ query: q });
+      setQueryState(q); // instant local update
+      // Sync to URL without triggering server re-render
+      if (queryDebounceRef.current) clearTimeout(queryDebounceRef.current);
+      queryDebounceRef.current = setTimeout(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (q) params.set("query", q);
+        else params.delete("query");
+        params.delete("page");
+        window.history.replaceState(null, "", `/blog?${params.toString()}`);
+      }, 500);
     },
-    [pushURL]
+    [searchParams]
   );
 
   const handleCategoryClick = (slug: string) => {
@@ -128,7 +140,11 @@ export function BlogPageContent({
     query
   );
 
-  const dynamicCategories = useAvailableCategories(localCategories, query);
+  const dynamicCategories = useAvailableCategories(
+    localCategories,
+    query,
+    availableCategories as { title: string; slug: string }[]
+  );
 
   const validFeaturedBlogsCount = featuredBlogsCount
     ? Number.parseInt(featuredBlogsCount, 10)
@@ -174,11 +190,13 @@ export function BlogPageContent({
     SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort";
 
   return (
-    <main className="bg-background pb-20 border-b">
-      <div className="container mx-auto py-16 px-4 md:px-6 border-x">
+    <main className="bg-background border-b relative">
+      <div className="container mx-auto border-x pb-20">
+        <div className="py-16 px-4 md:px-6">
         <BlogHeader description={description} title={title} />
+        </div>
 
-        <div className="flex items-center justify-between sticky top-16 mt-10 py-2 z-10 bg-background/80 backdrop-blur-sm">
+        <div className="flex flex-col-reverse lg:flex-row gap-2 lg:gap-0 items-center justify-between lg:sticky top-16 py-2 px-4 md:px-6 z-10 bg-background/80 backdrop-blur-sm border-y">
             <CategoryFilter
               categories={dynamicCategories} 
               selectedCategories={localCategories}
@@ -188,7 +206,7 @@ export function BlogPageContent({
             />
 
             <SearchInput
-              className="shrink-0 min-w-sm lg:min-w-md"
+              className="shrink-0 w-full sm:max-w-sm lg:max-w-md"
               onChange={setQuery}
               onClear={() => setQuery("")}
               placeholder="Search blogs..."
@@ -196,83 +214,85 @@ export function BlogPageContent({
             />
         </div>
 
-        {isActive ? (
-          <>
-            {isSearching && (
-              <p className="mb-6 text-sm text-muted-foreground min-h-20 flex items-start justify-center">
-                <Loader2 className="animate-spin" />
-              </p>
-            )}
-            {!isSearching && results.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  {hasQuery
-                    ? `No results for "${query}"`
-                    : "No posts in this category"}
+        <div className="px-4 md:px-6">
+          {isActive ? (
+            <>
+              {isSearching && (
+                <p className="mb-6 text-sm text-muted-foreground min-h-40 flex items-center justify-center">
+                  <Loader2 className="animate-spin" />
                 </p>
-              </div>
-            )}
-            {!isSearching && results.length > 0 && (
-              <section className="mt-8">
-                <h2 className="sr-only">
-                  {hasQuery ? `Results for "${query}"` : "Filtered posts"}
-                </h2>
-                <div className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-                  {results.map((hit) => (
-                    <AlgoliaBlogCard key={hit.objectID} hit={hit} />
-                  ))}
+              )}
+              {!isSearching && results.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-muted-foreground">
+                    {hasQuery
+                      ? `No results for "${query}"`
+                      : "No posts in this category"}
+                  </p>
                 </div>
-              </section>
-            )}
-          </>
-        ) : (
-          <div className="mt-10">
-            {/* Featured Blog */}
-            <BlogSection blogs={featuredBlogs} isFeatured title="Featured Posts" />
+              )}
+              {!isSearching && results.length > 0 && (
+                <section className="mt-8">
+                  <h2 className="sr-only">
+                    {hasQuery ? `Results for "${query}"` : "Filtered posts"}
+                  </h2>
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+                    {results.map((hit) => (
+                      <AlgoliaBlogCard key={hit.objectID} hit={hit} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : (
+            <div className="mt-10">
+              {/* Featured Blog */}
+              <span className="uppercase text-xs lg:text-sm">Feauted articles</span>
+              <BlogSection blogs={featuredBlogs} isFeatured title="Featured Posts" />
 
-            <div className="flex items-center justify-between">
-              <span>Latest articles</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center shrink-0 gap-2 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {currentSortLabel}
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {SORT_OPTIONS.map((opt) => (
-                    <DropdownMenuItem
-                      key={opt.value}
-                      onClick={() => setSortBy(opt.value)}
-                      className={cn(
-                        sortBy === opt.value && "font-medium text-foreground"
-                      )}
+              <div className="flex items-center justify-between">
+                <span className="uppercase text-xs lg:text-sm">Latest articles</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center shrink-0 gap-2 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      {opt.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      {currentSortLabel}
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {SORT_OPTIONS.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => setSortBy(opt.value)}
+                        className={cn(
+                          sortBy === opt.value && "font-medium text-foreground"
+                        )}
+                      >
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <BlogSection blogs={sortedRemainingBlogs} title="All Posts" />
+
+              {paginationMetadata?.totalPages > 1 && (
+                <BlogPagination
+                  className="mt-40 flex justify-center"
+                  currentPage={paginationMetadata.currentPage}
+                  hasNextPage={paginationMetadata.hasNextPage}
+                  hasPreviousPage={paginationMetadata.hasPreviousPage}
+                  totalPages={paginationMetadata.totalPages}
+                />
+              )}
             </div>
-
-            <BlogSection blogs={sortedRemainingBlogs} title="All Posts" />
-
-            {paginationMetadata?.totalPages > 1 && (
-              <BlogPagination
-                className="mt-40 flex justify-center"
-                currentPage={paginationMetadata.currentPage}
-                hasNextPage={paginationMetadata.hasNextPage}
-                hasPreviousPage={paginationMetadata.hasPreviousPage}
-                totalPages={paginationMetadata.totalPages}
-              />
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
       {pageBuilder && pageBuilder.length > 0 && (
         <PageBuilder id={_id} pageBuilder={pageBuilder} type={_type} />
       )}

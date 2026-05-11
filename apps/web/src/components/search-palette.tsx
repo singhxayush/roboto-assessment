@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { algoliasearch } from "algoliasearch";
+import { useSearchData } from "@/components/search-context";
 import { Search, Hash, AtSign, FileText, ArrowRight } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
 
@@ -94,6 +95,59 @@ export function SearchPalette() {
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Autocomplete hooks and states
+  const { allCategories, allAuthors } = useSearchData();
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+
+  // Detect if user is typing a tag
+  const getActiveToken = (q: string) => {
+    const catMatch = q.match(/#([\w-]*)$/);
+    const authMatch = q.match(/@([\w-]*)$/);
+    if (catMatch) return { type: "category", partial: catMatch[1] };
+    if (authMatch) return { type: "author", partial: authMatch[1] };
+    return null;
+  };
+
+  // Update suggestions as query changes
+  useEffect(() => {
+    const token = getActiveToken(query);
+    if (!token) {
+      setSuggestions([]);
+      return;
+    }
+    if (token.type === "category") {
+      setSuggestions(
+        allCategories
+          .map((c) => c.slug)
+          .filter((s) => s.startsWith(token.partial ?? ""))
+          .slice(0, 5)
+      );
+    } else {
+      setSuggestions(
+        allAuthors
+          .map((a) => a.slug)
+          .filter((s) => s.startsWith(token.partial ?? ""))
+          .slice(0, 5)
+      );
+    }
+    setSuggestionIndex(0);
+  }, [query, allCategories, allAuthors]);
+
+  const applySuggestion = (suggestion: string) => {
+    const token = getActiveToken(query);
+    if (!token) return;
+    const prefix = token.type === "category" ? "#" : "@";
+    // Replace the partial token at end of query with full suggestion
+    const newQuery = query.replace(
+      new RegExp(`${prefix}${token.partial}$`),
+      `${prefix}${suggestion} `
+    );
+    setQuery(newQuery);
+    setSuggestions([]);
+  };
+
   
 
   // CMD+K listener
@@ -120,6 +174,7 @@ export function SearchPalette() {
   }, [open]);
 
   // Debounced Algolia search
+// Debounced Algolia search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -129,35 +184,77 @@ export function SearchPalette() {
     }
 
     debounceRef.current = setTimeout(async () => {
-        setLoading(true);
-        try {
-            const { tokens, plainText } = parseQuery(query);
+      setLoading(true);
+      try {
+        const { tokens, plainText } = parseQuery(query);
 
-            // Build one combined query — Algolia will prefix-match all terms
-            // against searchableAttributes which includes categorySlugs and authorSlug
-            const slugTerms = tokens
-            .filter((t) => t.type === "category" || t.type === "author")
-            .map((t) => t.value)
-            .join(" ");
+        const categoryTokens = tokens.filter((t) => t.type === "category");
+        const authorTokens = tokens.filter((t) => t.type === "author");
 
-            const combinedQuery = [plainText, slugTerms]
-            .filter(Boolean)
-            .join(" ");
+        // 1. Resolve partial tags to EXACT facet matches
+        const facetPromises: Promise<{ type: string; values: string[] }>[] = [];
 
-            const response = await searchClient.searchSingleIndex<AlgoliaBlog>({
-            indexName: INDEX,
-            searchParams: {
-                query: combinedQuery,
-                hitsPerPage: 8,
-            },
-            });
-            setResults(response.hits);
-            setSelectedIndex(0);
-        } catch (err) {
-            console.error("Search error:", err);
-        } finally {
-            setLoading(false);
-        }
+        categoryTokens.forEach((t) => {
+          facetPromises.push(
+            searchClient
+              .searchForFacetValues({
+                indexName: INDEX,
+                facetName: "categorySlugs", // MUST be set as 'searchable' facet in Algolia Dashboard
+                searchForFacetValuesRequest: { facetQuery: t.value || "" },
+              })
+              .then((res) => ({
+                type: "categorySlugs",
+                values: res.facetHits.map((h) => h.value),
+              }))
+          );
+        });
+
+        authorTokens.forEach((t) => {
+          facetPromises.push(
+            searchClient
+              .searchForFacetValues({
+                indexName: INDEX,
+                facetName: "authorSlug", // MUST be set as 'searchable' facet in Algolia Dashboard
+                searchForFacetValuesRequest: { facetQuery: t.value || "" },
+              })
+              .then((res) => ({
+                type: "authorSlug",
+                values: res.facetHits.map((h) => h.value),
+              }))
+          );
+        });
+
+        // Run all facet searches in parallel
+        const facetResults = await Promise.all(facetPromises);
+
+        // 2. Build the EXACT filter string
+        const filterGroups = facetResults.map((fr) => {
+          // If a user types @nonexistent and no facets match, force the query to return 0 results
+          if (fr.values.length === 0) return "objectID:null_force_empty";
+          
+          // Creates an OR group: (authorSlug:ayush-kumar OR authorSlug:ayushman)
+          return `(${fr.values.map((v) => `${fr.type}:${v}`).join(" OR ")})`;
+        });
+
+        const filters = filterGroups.length > 0 ? filterGroups.join(" AND ") : undefined;
+
+        // 3. Search the blogs cleanly
+        const response = await searchClient.searchSingleIndex<AlgoliaBlog>({
+          indexName: INDEX,
+          searchParams: {
+            query: plainText, // ONLY plain text goes here now! No tags to trigger false title matches.
+            filters: filters,
+            hitsPerPage: 8,
+          },
+        });
+
+        setResults(response.hits);
+        setSelectedIndex(0);
+      } catch (err) {
+        console.error("Search error:", err);
+      } finally {
+        setLoading(false);
+      }
     }, 180);
 
     return () => {
@@ -167,23 +264,42 @@ export function SearchPalette() {
 
   // Keyboard navigation
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            const next = Math.min(selectedIndex + 1, results.length - 1);
-            setSelectedIndex(next);
-            itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
-        } else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            const prev = Math.max(selectedIndex - 1, 0);
-            setSelectedIndex(prev);
-            itemRefs.current[prev]?.scrollIntoView({ block: "nearest" });
-        } else if (e.key === "Enter" && results[selectedIndex]) {
-            navigateTo(results[selectedIndex]);
+      // Tab autocomplete
+      if (e.key === "Tab" && suggestions.length > 0) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Tab — cycle backwards
+          setSuggestionIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+        } else {
+          // Tab — cycle forwards
+          setSuggestionIndex((i) => (i + 1) % suggestions.length);
         }
+        return;
+      }
+      if (e.key === "Enter" && suggestions.length > 0) {
+        e.preventDefault();
+        applySuggestion(suggestions[suggestionIndex] ?? "");
+        return;
+      }
+
+      // existing arrow/enter navigation for results
+      if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const next = Math.min(selectedIndex + 1, results.length - 1);
+          setSelectedIndex(next);
+          itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prev = Math.max(selectedIndex - 1, 0);
+          setSelectedIndex(prev);
+          itemRefs.current[prev]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter" && results[selectedIndex]) {
+          navigateTo(results[selectedIndex]);
+      }
     };
 
   const navigateTo = (blog: AlgoliaBlog) => {
-    router.push(`/blog/${blog.slug.split("/").pop()}`);
+    router.push(`/blog/${blog.slug.split("/").pop() || blog.slug}`);
     setOpen(false);
   };
 
@@ -225,6 +341,33 @@ export function SearchPalette() {
           </kbd>
         </div>
 
+        {/* auto complete suggestion Menu */}
+        {suggestions.length > 0 && (
+          <div className="border-b border-border px-4 py-2">
+            <p className="mb-1.5 text-xs text-muted-foreground">Suggestions</p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s, i) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => applySuggestion(s)}
+                  className={cn(
+                    "rounded border px-2 py-0.5 font-mono text-xs transition-colors",
+                    i === suggestionIndex
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:border-foreground"
+                  )}
+                >
+                  {s}
+                  {i === 0 && (
+                    <kbd className="ml-1.5 opacity-50">Tab</kbd>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Active token pills */}
         {(activeCategories.length > 0 || activeAuthors.length > 0) && (
           <div className="flex flex-wrap gap-1.5 border-b border-border px-4 py-2">
@@ -258,12 +401,96 @@ export function SearchPalette() {
           )}
 
           {!query && (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              <p>Start typing to search</p>
-              <p className="mt-1 text-xs opacity-60">
-                Use <span className="font-mono">#category</span> or{" "}
-                <span className="font-mono">@author</span> to filter
-              </p>
+            <div className="px-4 py-2">
+              <div className="rounded-xl border bg-background/40 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">
+                    Search syntax
+                  </p>
+
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    combinable
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
+                      1
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="font-mono text-[13px] text-foreground">
+                        auth jwt session
+                      </p>
+
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Plain full-text search
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
+                      2
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="font-mono text-[13px] text-foreground">
+                        #backend
+                      </p>
+
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Filter by category slug
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
+                      3
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="font-mono text-[13px] text-foreground">
+                        @ayush
+                      </p>
+
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Filter by author slug
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-xs font-medium text-muted-foreground">
+                      4
+                    </span>
+
+                    <div className="min-w-0">
+                      <p className="font-mono text-[13px] text-foreground">
+                        middleware &gt; redis
+                      </p>
+
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Match blogs containing text after{" "}
+                        <span className="font-mono">&gt;</span>
+                      </p>
+                    </div>
+                  </div> */}
+                </div>
+
+                <div className="mt-4 border-t pt-3">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Combine filters freely:
+                  </p>
+
+                  <p className="mt-1 font-mono text-[12px] text-foreground/90">
+                    {/* auth #backend @ayush &gt; redis */}
+                    auth #backend @ayush
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

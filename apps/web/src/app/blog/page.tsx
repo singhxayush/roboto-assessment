@@ -1,5 +1,6 @@
 import { sanityFetch } from "@workspace/sanity/live";
 import {
+  queryAllAuthors,
   queryAvailableCategories,
   queryBlogIndexPageBlogs,
   queryBlogIndexPageBlogsCount,

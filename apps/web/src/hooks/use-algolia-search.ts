@@ -95,11 +95,10 @@ export function useAlgoliaSearch(
 
 export function useAvailableCategories(
   selectedCategories: string[],
-  query: string = ""
+  query: string = "",
+  initialCategories: { title: string; slug: string }[] = []
 ) {
-  const [availableCategories, setAvailableCategories] = useState<
-    { title: string; slug: string }[]
-  >([]);
+  const [availableCategories, setAvailableCategories] = useState<{ title: string; slug: string } []> (initialCategories);
 
   useEffect(() => {
     async function fetch() {

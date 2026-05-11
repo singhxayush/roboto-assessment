@@ -28,23 +28,21 @@ function nameToSlug(name: string): string {
 async function syncToAlgolia() {
   const algolia = getAlgoliaAdminClient();
 
-    await algolia.setSettings({
-        indexName: ALGOLIA_INDEX,
-        indexSettings: {
-            searchableAttributes: [
-                "title",
-                "description",
-                "authorSlug",
-                "categorySlugs",
-                "categoryTitles",
-                "author.name",
-            ],
-            attributesForFaceting: [
-                "categorySlugs",
-                "authorSlug",
-            ],
-        },
-    });
+  await algolia.setSettings({
+    indexName: ALGOLIA_INDEX,
+
+    indexSettings: {
+      searchableAttributes: [
+        "title",
+        "description",
+      ],
+      // FIX: Wrap the facets in searchable() 
+      attributesForFaceting: [
+        "searchable(categorySlugs)",
+        "searchable(authorSlug)"
+      ],
+    },
+  });
 
   const blogs = await client.fetch(queryBlogsForAlgolia);
 
@@ -53,19 +51,19 @@ async function syncToAlgolia() {
   }
 
   // Inject auto-generated author slug
-    const enriched = blogs.map((blog: Record<string, any>) => ({
-        ...blog,
-        author: blog.author
-            ? {
-                ...blog.author,
-                slug: nameToSlug(blog.author.name ?? ""),
-            }
-            : null,
-        // Flat arrays for reliable Algolia filtering
-        categorySlugs: (blog.categories ?? []).map((c: any) => c.slug),
-        categoryTitles: (blog.categories ?? []).map((c: any) => c.title),
-        authorSlug: blog.author ? nameToSlug(blog.author.name ?? "") : null,
-    }));
+  const enriched = blogs.map((blog: Record<string, any>) => ({
+    ...blog,
+    author: blog.author
+      ? {
+        ...blog.author,
+        slug: nameToSlug(blog.author.name ?? ""),
+      }
+      : null,
+    // Flat arrays for reliable Algolia filtering
+    categorySlugs: (blog.categories ?? []).map((c: any) => c.slug),
+    categoryTitles: (blog.categories ?? []).map((c: any) => c.title),
+    authorSlug: blog.author ? nameToSlug(blog.author.name ?? "") : null,
+  }));
 
   await algolia.saveObjects({
     indexName: ALGOLIA_INDEX,

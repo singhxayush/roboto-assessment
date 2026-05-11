@@ -13,7 +13,6 @@ import { Navbar } from "@/components/navbar";
 import { PreviewBar } from "@/components/preview-bar";
 import { Providers } from "@/components/providers";
 import { getNavigationData } from "@/lib/navigation";
-import { SearchPalette } from "@/components/search-palette";
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -40,7 +39,6 @@ export default async function RootLayout({
       >
         <Providers>
           <Navbar navbarData={nav.navbarData} settingsData={nav.settingsData} />
-          <SearchPalette />
           {children}
           <Suspense fallback={<FooterSkeleton />}>
             <FooterServer />

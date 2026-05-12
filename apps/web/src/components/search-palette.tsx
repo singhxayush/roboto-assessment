@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { algoliasearch } from "algoliasearch";
 import { useSearchData } from "@/components/search-context";
-import { Search, Hash, AtSign, FileText, ArrowRight } from "lucide-react";
+import { Search, Hash, AtSign, FileText, ArrowRight, ArrowUp, CornerDownLeft } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
 
 const searchClient = algoliasearch(
@@ -414,7 +414,7 @@ function ActiveTokensPanel({
 function SyntaxGuide() {
   return (
     <div className="px-4 py-2">
-      <div className="rounded-xl border bg-background/40 p-4">
+      <div className="bg-background/40 p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium text-foreground">Search syntax</p>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -526,6 +526,26 @@ function SearchFooter() {
     <div className="flex items-center justify-between border-t border-border px-4 py-2">
       <span className="text-xs text-muted-foreground">
         ↑↓ navigate · Enter select · Esc close
+      </span>
+
+      <span className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <kbd className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+          <ArrowUp className="h-2.5 w-2.5" />
+          Shift
+        </kbd>
+        <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+          Tab
+        </kbd>
+        <span className="opacity-50">/</span>
+        <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+          Tab
+        </kbd>
+        <span className="opacity-40">to cycle</span>
+        <span className="mx-1 opacity-30">·</span>
+        <kbd className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
+          <CornerDownLeft className="h-2.5 w-2.5" />
+        </kbd>
+        <span className="opacity-40">to select</span>
       </span>
       {/* <span className="text-xs text-muted-foreground">Powered by Algolia</span> */}
     </div>

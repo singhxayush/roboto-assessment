@@ -19,15 +19,17 @@ export function BlogAlgoliaSearchResults({
 }: BlogAlgoliaSearchResultsProps) {
   if (isSearching) {
     return (
-      <p className="mb-6 text-sm text-muted-foreground min-h-40 flex items-center justify-center">
-        <Loader2 className="animate-spin" />
-      </p>
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <p className="text-muted-foreground">
+          <Loader2 className="animate-spin" />
+        </p>
+      </div>
     );
   }
 
   if (results.length === 0) {
     return (
-      <div className="py-12 text-center">
+      <div className="min-h-[50vh] flex items-center justify-center">
         <p className="text-muted-foreground">
           {hasQuery ? `No results for "${query}"` : "No posts in this category"}
         </p>

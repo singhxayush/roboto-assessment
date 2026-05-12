@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { algoliasearch } from "algoliasearch";
 import { useSearchData } from "@/components/search-context";
-import { Search, Hash, AtSign, FileText, ArrowRight, ArrowUp, CornerDownLeft } from "lucide-react";
+import { Search, Hash, AtSign, FileText, ArrowRight, ArrowUp, CornerDownLeft, ArrowBigUp } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
 
 const searchClient = algoliasearch(
@@ -523,14 +523,14 @@ function BlogResultItem({
 
 function SearchFooter() {
   return (
-    <div className="flex items-center justify-between border-t border-border px-4 py-2">
+    <div className="flex items-center justify-between border-t border-border px-4 py-2 select-none">
       <span className="text-xs text-muted-foreground">
         ↑↓ navigate · Enter select · Esc close
       </span>
 
-      <span className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
         <kbd className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
-          <ArrowUp className="h-2.5 w-2.5" />
+          <ArrowBigUp className="size-3 fill-muted-foreground/10" />
           Shift
         </kbd>
         <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
@@ -541,7 +541,7 @@ function SearchFooter() {
           Tab
         </kbd>
         <span className="opacity-40">to cycle</span>
-        <span className="mx-1 opacity-30">·</span>
+        <span>·</span>
         <kbd className="flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
           <CornerDownLeft className="h-2.5 w-2.5" />
         </kbd>
